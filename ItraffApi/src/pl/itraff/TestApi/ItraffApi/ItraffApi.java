@@ -13,13 +13,17 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
 
+import pl.itraff.TestApi.ItraffApi.model.APIResponse;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 
 /**
@@ -69,15 +73,15 @@ import android.util.Log;
 public class ItraffApi {
 
 	private String TAG = "TestApi";
-	public static final String API_URL = "http://recognize.im/recognize/";
+	public static final String API_URL = "http://recognize.im/v2/recognize/";
 	private Integer clientId;
 	private String clientKey;
 	private String customUrl;
 	Boolean debug = true;
 	private String mode = MODE_SINGLE;
+	private String mockedResult = "";
 
 	public static final String RESPONSE = "response";
-	public static final String STATUS = "status";
 	public static final String HASH_HEADER = "x-itraff-hash";
 
 	public final static String ACCEPT = "Accept";
@@ -85,6 +89,7 @@ public class ItraffApi {
 
 	public static final String MODE_SINGLE = "single";
 	public static final String MODE_MULTI = "multi";
+	public static final String MODE_SHELF = "shelf";
 
 	/**
 	 * ItraffApi public constructor
@@ -141,6 +146,17 @@ public class ItraffApi {
 	 */
 	public void sendPhoto(byte[] photo, Handler itraffApiHandler,
 			boolean allResults) {
+		if (mockedResult.length() > 0) {
+			if (itraffApiHandler != null) {
+				Message msg = new Message();
+				Bundle data = new Bundle();
+				data.putSerializable(ItraffApi.RESPONSE, new APIResponse(mockedResult));
+
+				msg.setData(data);
+				itraffApiHandler.sendMessage(msg);
+				return;
+			}
+		}
 		try {
 			HttpPost postPhoto = getPostPhotoRequest(photo, allResults);
 			ItraffApiPostPhoto postPhotoAsyncTask = new ItraffApiPostPhoto(
@@ -175,11 +191,14 @@ public class ItraffApi {
 			if (allResults) {
 				paramsURL += "allInstances/";
 			}
-		} else {
+		} else if(mode.equals(MODE_SINGLE)) {
+			paramsURL = "single/";
 			photo = scaleBitmap(photo, 50000, 120000);
 			if (allResults) {
 				paramsURL += "allResults/";
 			}
+		} else if(mode.equals(MODE_SHELF)) {
+			paramsURL = "shelf/all/";
 		}
 		if (requestUrl != null) {
 			if (clientId != null) {
@@ -272,6 +291,10 @@ public class ItraffApi {
 		this.mode = mode;
 	}
 
+	public void mock(String mock) {
+		this.mockedResult  = mock;
+	}
+	
 	/**
 	 * Logs message if debug == true using Log.v(TAG, message)
 	 * 

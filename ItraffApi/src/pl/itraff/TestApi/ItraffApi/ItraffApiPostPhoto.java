@@ -9,8 +9,8 @@ import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
-import org.json.JSONException;
-import org.json.JSONObject;
+
+import pl.itraff.TestApi.ItraffApi.model.APIResponse;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -55,6 +55,7 @@ public class ItraffApiPostPhoto extends AsyncTask<Void, Void, Integer> {
 	String response;
 	HttpPost httpPost;
 	Handler itraffApiHandler;
+	private APIResponse apiResp;
 
 	public ItraffApiPostPhoto(Handler itraffApiHandler, HttpPost httpPost,
 			String debugTag, Boolean debug) {
@@ -75,17 +76,8 @@ public class ItraffApiPostPhoto extends AsyncTask<Void, Void, Integer> {
 		// post photo and get json response
 		response = post();
 		if (response != null) {
-			log("RESPONSE:");
-			log(response);
-
-			try {
-				JSONObject jsonObject = new JSONObject(response);
-				status = jsonObject.getInt(ItraffApi.STATUS);
-				log("" + status);
-
-			} catch (JSONException e) {
-				e.printStackTrace();
-			}
+			apiResp = new APIResponse(response);
+			status = apiResp.getStatus();
 		}
 
 		return status;
@@ -98,8 +90,7 @@ public class ItraffApiPostPhoto extends AsyncTask<Void, Void, Integer> {
 		if (itraffApiHandler != null) {
 			Message msg = new Message();
 			Bundle data = new Bundle();
-			data.putInt(ItraffApi.STATUS, status);
-			data.putString(ItraffApi.RESPONSE, response);
+			data.putSerializable(ItraffApi.RESPONSE, apiResp);
 
 			msg.setData(data);
 			itraffApiHandler.sendMessage(msg);

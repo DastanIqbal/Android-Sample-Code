@@ -3,6 +3,7 @@ package pl.itraff.recognize.TestApi;
 import java.io.ByteArrayOutputStream;
 
 import pl.itraff.TestApi.ItraffApi.ItraffApi;
+import pl.itraff.TestApi.ItraffApi.model.*;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -17,6 +18,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,6 +50,10 @@ public class MainActivity extends Activity {
 
 	ProgressDialog waitDialog;
 
+	protected APIResponse response;
+
+	private Button imageShowBtn;
+
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -69,6 +75,7 @@ public class MainActivity extends Activity {
 		if (CLIENT_API_KEY.length() > 0) {
 			clientApiKeyEdit.setText(CLIENT_API_KEY);
 		}
+		imageShowBtn = (Button) findViewById(R.id.btn_show_result);
 	}
 
 	@Override
@@ -98,6 +105,16 @@ public class MainActivity extends Activity {
 			}
 		}
 		CLIENT_API_KEY = clientApiKeyEdit.getText().toString();
+	}
+
+	public void showResult(View v) {
+		if (response == null || response.getStatus() != 0) {
+			return;
+		}
+		Intent intent = new Intent(this, ImageShowActivity.class);
+		intent.putExtra("data", response);
+		intent.putExtra("bitmap", pictureData);
+		startActivity(intent);
 	}
 
 	public void makePhotoClick(View v) {
@@ -141,24 +158,37 @@ public class MainActivity extends Activity {
 			dismissWaitDialog();
 			Bundle data = msg.getData();
 			if (data != null) {
-				Integer status = data.getInt(ItraffApi.STATUS, -1);
-				String response = data.getString(ItraffApi.RESPONSE);
+				response = (APIResponse) data
+						.getSerializable(ItraffApi.RESPONSE);
 				// status ok
-				if (status == 0) {
-					responseView.setText(response);
+				if (response.getStatus() == 0) {
+					String text = "Status: 0\tObjects: [";
+					for (APIObject obj : response.getObjects()) {
+						text += obj.getName() + ", ";
+					}
+					text = text.substring(0, text.length() - 2) + "]";
+
+					responseView.setText(text);
+					MainActivity.this.imageShowBtn.setVisibility(View.VISIBLE);
 					// application error (for example timeout)
-				} else if (status == -1) {
+				} else if (response.getStatus() == -1) {
 					responseView.setText(getResources().getString(
 							R.string.app_error));
+					MainActivity.this.imageShowBtn
+							.setVisibility(View.INVISIBLE);
 					// error from api
 				} else {
 					responseView.setText(getResources().getString(
 							R.string.error)
-							+ response);
+							+ response.getMessage());
+					MainActivity.this.imageShowBtn
+							.setVisibility(View.INVISIBLE);
 				}
 			}
 		}
 	};
+
+	private byte[] pictureData;
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -196,7 +226,7 @@ public class MainActivity extends Activity {
 							ByteArrayOutputStream stream = new ByteArrayOutputStream();
 							image.compress(Bitmap.CompressFormat.JPEG, 100,
 									stream);
-							byte[] pictureData = stream.toByteArray();
+							pictureData = stream.toByteArray();
 							api.sendPhoto(pictureData, itraffApiHandler,
 									prefs.getBoolean("allResults", true));
 						} else {

@@ -77,6 +77,18 @@
             android:textSize="15dp"
             android:textStyle="bold" >
         </Button>
+        <Button
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/btn_show_result"
+            android:gravity="center"
+            android:visibility="invisible"
+            android:onClick="showResult"
+            android:text="@string/show_result"
+            android:textColor="@android:color/black"
+            android:textSize="15dp"
+            android:textStyle="bold" >
+        </Button>
 
     <ImageView
         android:layout_width="fill_parent"

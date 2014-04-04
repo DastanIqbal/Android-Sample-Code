@@ -37,9 +37,9 @@ public class ItraffApiHttpClient {
 					.setUserAgent(
 							params,
 							"Mozilla/5.0 (Linux; U; Android 2.2.1; en-us; Nexus One Build/FRG83) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1");
-			ConnManagerParams.setTimeout(params, 60000); // doubled
-			HttpConnectionParams.setConnectionTimeout(params, 60000);
-			HttpConnectionParams.setSoTimeout(params, 60000);
+			ConnManagerParams.setTimeout(params, 90000); // doubled
+			HttpConnectionParams.setConnectionTimeout(params, 90000);
+			HttpConnectionParams.setSoTimeout(params, 90000);
 			SchemeRegistry schReg = new SchemeRegistry();
 			schReg.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
 			schReg.register(new Scheme("https", PlainSocketFactory.getSocketFactory(), 443));

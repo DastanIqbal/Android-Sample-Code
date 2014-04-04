@@ -17,4 +17,5 @@
     <string name="not_connected">No internet connection!</string>
     <string name="show_all_results">Show all results</string>
     <string name="show_all_instances">Show multiple instances</string>
+    <string name="show_result">Show image with frames</string>
 </resources>
