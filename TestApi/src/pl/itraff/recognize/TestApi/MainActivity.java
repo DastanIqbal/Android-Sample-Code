@@ -1,6 +1,13 @@
 package pl.itraff.recognize.TestApi;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 import pl.itraff.TestApi.ItraffApi.ItraffApi;
 import pl.itraff.TestApi.ItraffApi.model.*;
@@ -10,6 +17,9 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -40,6 +50,9 @@ public class MainActivity extends Activity {
 
 	private static final int RESULT_BMP_DAMAGED = 128;
 
+	private static final int REQUEST_SEND = 100;
+	private static final int REQUEST_PHOTO = 101;
+
 	private TextView responseView;
 
 	private EditText clientIdEdit;
@@ -53,6 +66,8 @@ public class MainActivity extends Activity {
 	protected APIResponse response;
 
 	private Button imageShowBtn;
+
+	private File outFile;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -76,6 +91,42 @@ public class MainActivity extends Activity {
 			clientApiKeyEdit.setText(CLIENT_API_KEY);
 		}
 		imageShowBtn = (Button) findViewById(R.id.btn_show_result);
+
+		Intent intent = getIntent();
+		String action = intent.getAction();
+		String type = intent.getType();
+		outFile = new File(this.getExternalFilesDir(null), "scan.jpg");
+
+		if (action.equals(Intent.ACTION_SEND) && type.contains("image/")) {
+			Uri receivedUri = (Uri) intent
+					.getParcelableExtra(Intent.EXTRA_STREAM);
+			InputStream fis = null;
+			OutputStream fos = null;
+			try {
+				fis = this.getContentResolver().openInputStream(receivedUri);
+				fos = new FileOutputStream(outFile);
+				byte[] buf = new byte[1024];
+				int bytesRead;
+				while ((bytesRead = fis.read(buf)) > 0) {
+					fos.write(buf, 0, bytesRead);
+				}
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			} finally {
+				try {
+					if (fis != null)
+						fis.close();
+					if (fos != null)
+						fos.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			onActivityResult(REQUEST_SEND, Activity.RESULT_OK, intent);
+		}
+
 	}
 
 	@Override
@@ -125,13 +176,14 @@ public class MainActivity extends Activity {
 			savePrefs();
 
 			// Intent to take a photo
-			Intent takePictureIntent = new Intent(
-					MediaStore.ACTION_IMAGE_CAPTURE);
+			outFile.delete();
+			Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+			takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+			takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
+					Uri.fromFile(outFile));
 			takePictureIntent.putExtra(MediaStore.EXTRA_FULL_SCREEN, true);
-			takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, true);
-			takePictureIntent.putExtra(MediaStore.EXTRA_SHOW_ACTION_ICONS,
-					false);
-			startActivityForResult(takePictureIntent, 1234);
+			takePictureIntent.putExtra(MediaStore.EXTRA_SHOW_ACTION_ICONS, false);
+			startActivityForResult(takePictureIntent, REQUEST_PHOTO);
 		} else {
 			Toast.makeText(getApplicationContext(),
 					"Fill in Your Client Id and API Key", Toast.LENGTH_SHORT)
@@ -192,54 +244,53 @@ public class MainActivity extends Activity {
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		log("onActivityResult reqcode, resultcode: " + requestCode + "  "
-				+ resultCode);
 		if (resultCode == Activity.RESULT_OK) {
-			log("Activity.RESULT_OK");
-			if (data != null) {
-				log("data != null");
-				Bundle bundle = data.getExtras();
-				if (bundle != null) {
-					log("bundle != null");
+			Bitmap image = null; // (Bitmap) bundle.get("data");
+			InputStream fis = null;
+			try {
+				fis = new FileInputStream(outFile);
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
 
-					// byte[] pictureData = bundle.getByteArray("pictureData");
-					Bitmap image = (Bitmap) bundle.get("data");
-					if (image != null) {
-						log("image != null");
+			BitmapFactory.Options options = new BitmapFactory.Options();
+			options.inJustDecodeBounds = false;
+			options.inPreferredConfig = Config.RGB_565;
+			options.inDither = true;
+			options.inSampleSize = 2;
+			image = BitmapFactory.decodeStream(fis, null, options);
+			if (image == null) {
+				return;
+			}
+			ByteArrayOutputStream stream = new ByteArrayOutputStream();
+			image.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+			pictureData = stream.toByteArray();
 
-						// chceck internet connection
-						if (ItraffApi.isOnline(getApplicationContext())) {
-							showWaitDialog();
-							SharedPreferences prefs = PreferenceManager
-									.getDefaultSharedPreferences(getBaseContext());
-							// send photo
-							ItraffApi api = new ItraffApi(CLIENT_API_ID,
-									CLIENT_API_KEY, TAG, true);
-							Log.v("KEY", CLIENT_API_ID.toString());
-							if (prefs.getString("mode", "single").equals(
-									"multi")) {
-								api.setMode(ItraffApi.MODE_MULTI);
-							} else {
-								api.setMode(ItraffApi.MODE_SINGLE);
-							}
-
-							ByteArrayOutputStream stream = new ByteArrayOutputStream();
-							image.compress(Bitmap.CompressFormat.JPEG, 100,
-									stream);
-							pictureData = stream.toByteArray();
-							api.sendPhoto(pictureData, itraffApiHandler,
-									prefs.getBoolean("allResults", true));
-						} else {
-							// show message: no internet connection
-							// available.
-
-							Toast.makeText(
-									getApplicationContext(),
-									getResources().getString(
-											R.string.not_connected),
-									Toast.LENGTH_LONG).show();
-						}
+			if (pictureData != null) {
+				// chceck internet connection
+				if (ItraffApi.isOnline(getApplicationContext())) {
+					showWaitDialog();
+					SharedPreferences prefs = PreferenceManager
+							.getDefaultSharedPreferences(getBaseContext());
+					// send photo
+					ItraffApi api = new ItraffApi(CLIENT_API_ID,
+							CLIENT_API_KEY, TAG, true);
+					Log.v("KEY", CLIENT_API_ID.toString());
+					if (prefs.getString("mode", "single").equals("multi")) {
+						api.setMode(ItraffApi.MODE_MULTI);
+					} else {
+						api.setMode(ItraffApi.MODE_SINGLE);
 					}
+
+					api.sendPhoto(pictureData, itraffApiHandler,
+							prefs.getBoolean("allResults", true));
+				} else {
+					// show message: no internet connection
+					// available.
+
+					Toast.makeText(getApplicationContext(),
+							getResources().getString(R.string.not_connected),
+							Toast.LENGTH_LONG).show();
 				}
 			}
 		} else if (resultCode == RESULT_BMP_DAMAGED) {
