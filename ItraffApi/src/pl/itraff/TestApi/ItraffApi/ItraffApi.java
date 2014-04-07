@@ -188,18 +188,14 @@ public class ItraffApi {
 		if (mode.equals(MODE_MULTI)) {
 			paramsURL = "multi/";
 			photo = scaleBitmap(photo, 100000, 250000);
-			if (allResults) {
-				paramsURL += "allInstances/";
-			}
 		} else if(mode.equals(MODE_SINGLE)) {
 			paramsURL = "single/";
 			photo = scaleBitmap(photo, 50000, 120000);
-			if (allResults) {
-				paramsURL += "allResults/";
-			}
 		} else if(mode.equals(MODE_SHELF)) {
 			paramsURL = "shelf/all/";
 		}
+		if (allResults)
+			paramsURL += "all/";
 		if (requestUrl != null) {
 			if (clientId != null) {
 				requestUrl += paramsURL + clientId;

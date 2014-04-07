@@ -257,14 +257,17 @@ public class MainActivity extends Activity {
 			options.inJustDecodeBounds = false;
 			options.inPreferredConfig = Config.RGB_565;
 			options.inDither = true;
-			options.inSampleSize = 2;
-			image = BitmapFactory.decodeStream(fis, null, options);
+			options.inSampleSize = 4;
+		    image = BitmapFactory.decodeStream(fis, null, options);
+			
 			if (image == null) {
 				return;
 			}
 			ByteArrayOutputStream stream = new ByteArrayOutputStream();
 			image.compress(Bitmap.CompressFormat.JPEG, 100, stream);
 			pictureData = stream.toByteArray();
+			image.recycle();
+			image = null;
 
 			if (pictureData != null) {
 				// chceck internet connection
